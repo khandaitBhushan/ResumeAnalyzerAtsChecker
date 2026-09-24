@@ -1,18 +1,16 @@
 package com.org.ResumeAnalyzer;
 
-import org.antlr.v4.runtime.misc.Pair;
 import org.apache.tika.Tika;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.ResponseEntity;
 
 import java.util.HashMap;
 import java.util.Map;
-
 
 @RestController
 @RequestMapping("/api/resume")
@@ -29,60 +27,91 @@ public class ResumeController {
     @Value("${resume.prompt.ats-check}")
     private String promptForAtsCheck;
 
-
     @Autowired
-    public ResumeController (OpenAiChatModel openAiChatModel){
-        this.chatClient = ChatClient.create(openAiChatModel);
+    public ResumeController(GoogleGenAiChatModel googleGenAiChatModel) {
+        this.chatClient = ChatClient.create(googleGenAiChatModel);
     }
 
     @PostMapping("/analyzer")
-    public ResponseEntity<?> analyzer(@RequestParam("file")MultipartFile file)
-    {
+    public ResponseEntity<?> analyzer(
+            @RequestParam("file") MultipartFile file) {
+
         try {
-            String content = tika.parseToString(file.getInputStream());
+
+            String content =
+                    tika.parseToString(file.getInputStream());
 
             String aiResponse = chatClient.prompt()
                     .user(promptForAnalyze.formatted(content))
                     .call()
                     .content();
+
             Map<String, Object> response = new HashMap<>();
+
             response.put("analysis", cleanJsonResponse(aiResponse));
             response.put("status", "success");
+
             return ResponseEntity.ok()
                     .header("Content-Type", "application/json")
                     .body(response);
-        }catch (Exception e){
+
+        } catch (Exception e) {
+
             return ResponseEntity.badRequest()
-                    .body(createErrorResponse("Error in parsing file : "+file.getName()));
+                    .body(createErrorResponse(
+                            "Error in parsing file : " + file.getName()
+                    ));
         }
     }
 
     @PostMapping("/ats-check")
-    public ResponseEntity<?> atsCheck(@RequestParam("file")MultipartFile file,
-                                   @RequestParam("jd")String jobDescription )
-    {
+    public ResponseEntity<?> atsCheck(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("jd") String jobDescription) {
+
         try {
-            String resumeText = tika.parseToString(file.getInputStream());
+
+            String resumeText =
+                    tika.parseToString(file.getInputStream());
 
             String aiResponse = chatClient.prompt()
-                    .user(promptForAtsCheck.formatted(resumeText, jobDescription))
+                    .user(promptForAtsCheck.formatted(
+                            resumeText,
+                            jobDescription
+                    ))
                     .call()
                     .content();
+
             Map<String, Object> response = new HashMap<>();
+
             response.put("analysis", cleanJsonResponse(aiResponse));
             response.put("status", "success");
-            return ResponseEntity.ok().header("Content-Type", "application/json").body(response);
-        }catch (Exception e){
+
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(response);
+
+        } catch (Exception e) {
+
             return ResponseEntity.badRequest()
-                    .body(createErrorResponse("Error! Unable to parse resume: "+file.getName()));
+                    .body(createErrorResponse(
+                            "Error! Unable to parse resume: "
+                                    + file.getName()
+                    ));
         }
     }
 
     private String cleanJsonResponse(String aiResponse) {
+
         if (aiResponse == null) {
             return "{}";
         }
-        String cleaned = aiResponse.replaceAll("```json\\n?", "").replaceAll("\\n?```", "").trim();
+
+        String cleaned = aiResponse
+                .replaceAll("```json\\n?", "")
+                .replaceAll("\\n?```", "")
+                .trim();
+
         if (cleaned.isEmpty()) {
             return "{}";
         }
@@ -91,10 +120,12 @@ public class ResumeController {
     }
 
     private Map<String, Object> createErrorResponse(String message) {
+
         Map<String, Object> errorResponse = new HashMap<>();
+
         errorResponse.put("error", message);
         errorResponse.put("status", "error");
+
         return errorResponse;
     }
-
 }
